@@ -1,0 +1,59 @@
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: linkmesh-mysql
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "${MYSQL_PORT}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: linkmesh-redis
+    ports:
+      - "6379:6379"
+
+  zookeeper:
+    image: zookeeper:3.9
+    container_name: linkmesh-zookeeper
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_ADMINSERVER_ENABLED: "false"
+    ports:
+      - "2181:2181"
+
+  app:
+    build: .
+    container_name: linkmesh-app
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      zookeeper:
+        condition: service_started
+    ports:
+      - "${SERVER_PORT}:8080"
+
+volumes:
+  mysql_data:
+  redis_data:
+  zookeeper_data:
